@@ -524,6 +524,7 @@ typedef struct
 {
 	LOCAL_APIC	Base;
 	int		ApicID,
+			PkgID,
 			CoreID,
 			ThreadID;
 

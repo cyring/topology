@@ -26,19 +26,28 @@ typedef struct {
 unsigned int Intel_Brand(char *pBrand)
 {
 	char idString[64] = {0x20};
-	unsigned int ix = 0, jx = 0, px = 0;
+	unsigned long ix = 0, jx = 0, px = 0;
 	unsigned int frequency = 0, multiplier = 0;
 	BRAND Brand;
 
 	for (ix = 0; ix < 3; ix++) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a"  (Brand.AX),
-			  "=b"  (Brand.BX),
-			  "=c"  (Brand.CX),
-			  "=d"  (Brand.DX)
-			:  "a"   (0x80000002 + ix)
+			"movq	%4,    %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"xorq	%%rcx, %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r"  (Brand.AX),
+			  "=r"  (Brand.BX),
+			  "=r"  (Brand.CX),
+			  "=r"  (Brand.DX)
+			: "r"   (0x80000002 + ix)
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 		for (jx = 0; jx < 4; jx++, px++)
 			idString[px] = Brand.AX.Chr[jx];
@@ -87,18 +96,27 @@ unsigned int Intel_Brand(char *pBrand)
 void AMD_Brand(char *pBrand)
 {
 	char idString[64] = {0x20};
-	unsigned int ix = 0, jx = 0, px = 0;
+	unsigned long ix = 0, jx = 0, px = 0;
 	BRAND Brand;
 
 	for (ix = 0; ix < 3; ix++) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a"  (Brand.AX),
-			  "=b"  (Brand.BX),
-			  "=c"  (Brand.CX),
-			  "=d"  (Brand.DX)
-			:  "a"   (0x80000002 + ix)
+			"movq	%4,    %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"xorq	%%rcx, %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r"  (Brand.AX),
+			  "=r"  (Brand.BX),
+			  "=r"  (Brand.CX),
+			  "=r"  (Brand.DX)
+			: "r"   (0x80000002 + ix)
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 		for (jx = 0; jx < 4; jx++, px++)
 			idString[px] = Brand.AX.Chr[jx];
@@ -124,12 +142,21 @@ void Query_Features(void *pArg)
 	// Must have x86 CPUID 0x0, 0x1, and Intel CPUID 0x4
 	asm volatile
 	(
-		"cpuid"
-		: "=a" (arg->features.Info.LargestStdFunc),
-		  "=b" (ebx),
-		  "=c" (ecx),
-		  "=d" (edx)
-		:  "a" (0x0)
+		"xorq	%%rax, %%rax	\n\t"
+		"xorq	%%rbx, %%rbx	\n\t"
+		"xorq	%%rcx, %%rcx	\n\t"
+		"xorq	%%rdx, %%rdx	\n\t"
+		"cpuid			\n\t"
+		"mov	%%eax, %0	\n\t"
+		"mov	%%ebx, %1	\n\t"
+		"mov	%%ecx, %2	\n\t"
+		"mov	%%edx, %3"
+		: "=r" (arg->features.Info.LargestStdFunc),
+		  "=r" (ebx),
+		  "=r" (ecx),
+		  "=r" (edx)
+		:
+		: "%rax", "%rbx", "%rcx", "%rdx"
 	);
 	arg->features.Info.VendorID[ 0] = ebx;
 	arg->features.Info.VendorID[ 1] = (ebx >> 8);
@@ -147,33 +174,60 @@ void Query_Features(void *pArg)
 
 	asm volatile
 	(
-		"cpuid"
-		: "=a" (arg->features.Std.AX),
-		  "=b" (arg->features.Std.BX),
-		  "=c" (arg->features.Std.CX),
-		  "=d" (arg->features.Std.DX)
-		:  "a" (0x1)
+		"movq	$0x1,  %%rax	\n\t"
+		"xorq	%%rbx, %%rbx	\n\t"
+		"xorq	%%rcx, %%rcx	\n\t"
+		"xorq	%%rdx, %%rdx	\n\t"
+		"cpuid			\n\t"
+		"mov	%%eax, %0	\n\t"
+		"mov	%%ebx, %1	\n\t"
+		"mov	%%ecx, %2	\n\t"
+		"mov	%%edx, %3"
+		: "=r" (arg->features.Std.AX),
+		  "=r" (arg->features.Std.BX),
+		  "=r" (arg->features.Std.CX),
+		  "=r" (arg->features.Std.DX)
+		:
+		: "%rax", "%rbx", "%rcx", "%rdx"
 	);
 	if (arg->features.Info.LargestStdFunc >= 0x5) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (arg->features.MWait.AX),
-			  "=b" (arg->features.MWait.BX),
-			  "=c" (arg->features.MWait.CX),
-			  "=d" (arg->features.MWait.DX)
-			:  "a" (0x5)
+			"movq	$0x5,  %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"xorq	%%rcx, %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r" (arg->features.MWait.AX),
+			  "=r" (arg->features.MWait.BX),
+			  "=r" (arg->features.MWait.CX),
+			  "=r" (arg->features.MWait.DX)
+			:
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 	}
 	if (arg->features.Info.LargestStdFunc >= 0x6) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (arg->features.Power.AX),
-			  "=b" (arg->features.Power.BX),
-			  "=c" (arg->features.Power.CX),
-			  "=d" (arg->features.Power.DX)
-			:  "a" (0x6)
+			"movq	$0x6,  %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"xorq	%%rcx, %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r" (arg->features.Power.AX),
+			  "=r" (arg->features.Power.BX),
+			  "=r" (arg->features.Power.CX),
+			  "=r" (arg->features.Power.DX)
+			:
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 	}
 	if (arg->features.Info.LargestStdFunc >= 0x7) {
@@ -199,16 +253,39 @@ void Query_Features(void *pArg)
 	// Must have 0x80000000, 0x80000001, 0x80000002, 0x80000003, 0x80000004
 	asm volatile
 	(
-		"cpuid"
-		: "=a" (arg->features.Info.LargestExtFunc)
-		:  "a" (0x80000000)
+		"movq	$0x80000000, %%rax	\n\t"
+		"xorq	%%rbx, %%rbx		\n\t"
+		"xorq	%%rcx, %%rcx		\n\t"
+		"xorq	%%rdx, %%rdx		\n\t"
+		"cpuid				\n\t"
+		"mov	%%eax, %0		\n\t"
+		"mov	%%ebx, %1		\n\t"
+		"mov	%%ecx, %2		\n\t"
+		"mov	%%edx, %3"
+		: "=r" (arg->features.Info.LargestExtFunc),
+		  "=r" (ebx),
+		  "=r" (ecx),
+		  "=r" (edx)
+		:
+		: "%rax", "%rbx", "%rcx", "%rdx"
 	);
 	asm volatile
 	(
-		"cpuid"
-		: "=c" (arg->features.ExtInfo.CX),
-		  "=d" (arg->features.ExtInfo.DX)
-		:  "a" (0x80000001)
+		"movq	$0x80000001, %%rax	\n\t"
+		"xorq	%%rbx, %%rbx		\n\t"
+		"xorq	%%rcx, %%rcx		\n\t"
+		"xorq	%%rdx, %%rdx		\n\t"
+		"cpuid				\n\t"
+		"mov	%%eax, %0		\n\t"
+		"mov	%%ebx, %1		\n\t"
+		"mov	%%ecx, %2		\n\t"
+		"mov	%%edx, %3"
+		: "=r" (eax),
+		  "=r" (ebx),
+		  "=r" (arg->features.ExtInfo.CX),
+		  "=r" (arg->features.ExtInfo.DX)
+		:
+		: "%rax", "%rbx", "%rcx", "%rdx"
 	);
 	if (arg->features.Info.LargestExtFunc >= 0x80000007) {
 		asm volatile
@@ -235,13 +312,21 @@ void Query_Features(void *pArg)
 	if (!strncmp(arg->features.Info.VendorID, VENDOR_INTEL, 12)) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (eax),
-			  "=b" (ebx),
-			  "=c" (ecx),
-			  "=d" (edx)
-			:  "a" (0x4),
-			   "c" (0x0)
+			"movq	$0x4,  %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"xorq	%%rcx, %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r" (eax),
+			  "=r" (ebx),
+			  "=r" (ecx),
+			  "=r" (edx)
+			:
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 		arg->count = (eax >> 26) & 0x3f;
 		arg->count++;
@@ -249,12 +334,21 @@ void Query_Features(void *pArg)
 	    if (arg->features.Info.LargestStdFunc >= 0xa) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (arg->features.PerfMon.AX),
-			  "=b" (arg->features.PerfMon.BX),
-			  "=c" (arg->features.PerfMon.CX),
-			  "=d" (arg->features.PerfMon.DX)
-			:  "a" (0xa)
+			"movq	$0xa,  %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"xorq	%%rcx, %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r" (arg->features.PerfMon.AX),
+			  "=r" (arg->features.PerfMon.BX),
+			  "=r" (arg->features.PerfMon.CX),
+			  "=r" (arg->features.PerfMon.DX)
+			:
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 	    }
 	    arg->features.FactoryFreq = Intel_Brand(arg->features.Info.Brand);
@@ -267,12 +361,21 @@ void Query_Features(void *pArg)
 			if (arg->features.Info.LargestExtFunc >= 0x80000008) {
 				asm volatile
 				(
-					"cpuid"
-					: "=a" (eax),
-					  "=b" (ebx),
-					  "=c" (ecx),
-					  "=d" (edx)
-					:  "a" (0x80000008)
+					"movq	$0x80000008, %%rax	\n\t"
+					"xorq	%%rbx, %%rbx		\n\t"
+					"xorq	%%rcx, %%rcx		\n\t"
+					"xorq	%%rdx, %%rdx		\n\t"
+					"cpuid				\n\t"
+					"mov	%%eax, %0		\n\t"
+					"mov	%%ebx, %1		\n\t"
+					"mov	%%ecx, %2		\n\t"
+					"mov	%%edx, %3"
+					: "=r" (eax),
+					  "=r" (ebx),
+					  "=r" (ecx),
+					  "=r" (edx)
+					:
+					: "%rax", "%rbx", "%rcx", "%rdx"
 				);
 				arg->count = (ecx & 0xf) + 1;
 			}
@@ -283,18 +386,26 @@ void Query_Features(void *pArg)
 
 void Cache_Topology(CORE *Core)
 {
-	unsigned int level = 0x0;
+	unsigned long level = 0x0;
 	if (!strncmp(Proc->Features.Info.VendorID, VENDOR_INTEL, 12)) {
 	    for (level = 0; level < CACHE_MAX_LEVEL; level++) {
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (Core->T.Cache[level].AX),
-			  "=b" (Core->T.Cache[level].BX),
-			  "=c" (Core->T.Cache[level].Set),
-			  "=d" (Core->T.Cache[level].DX)
-			:  "a" (0x4),
-			   "c" (level)
+			"movq	$0x4,  %%rax	\n\t"
+			"xorq	%%rbx, %%rbx	\n\t"
+			"movq	%4,    %%rcx	\n\t"
+			"xorq	%%rdx, %%rdx	\n\t"
+			"cpuid			\n\t"
+			"mov	%%eax, %0	\n\t"
+			"mov	%%ebx, %1	\n\t"
+			"mov	%%ecx, %2	\n\t"
+			"mov	%%edx, %3"
+			: "=r" (Core->T.Cache[level].AX),
+			  "=r" (Core->T.Cache[level].BX),
+			  "=r" (Core->T.Cache[level].Set),
+			  "=r" (Core->T.Cache[level].DX)
+			: "r" (level)
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 		if (!Core->T.Cache[level].Type)
 			break;
@@ -312,12 +423,21 @@ void Cache_Topology(CORE *Core)
 		// Fn8000_0005 L1 Data and Inst. caches
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (CacheInfo.AX),
-			  "=b" (CacheInfo.BX),
-			  "=c" (CacheInfo.CX),
-			  "=d" (CacheInfo.DX)
-			:  "a" (0x80000005)
+			"movq	$0x80000005, %%rax	\n\t"
+			"xorq	%%rbx, %%rbx		\n\t"
+			"xorq	%%rcx, %%rcx		\n\t"
+			"xorq	%%rdx, %%rdx		\n\t"
+			"cpuid				\n\t"
+			"mov	%%eax, %0		\n\t"
+			"mov	%%ebx, %1		\n\t"
+			"mov	%%ecx, %2		\n\t"
+			"mov	%%edx, %3"
+			: "=r" (CacheInfo.AX),
+			  "=r" (CacheInfo.BX),
+			  "=r" (CacheInfo.CX),
+			  "=r" (CacheInfo.DX)
+			:
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 		// L1 Inst.
 		Core->T.Cache[0].Way  = CacheInfo.CPUID_0x80000005_L1I.Assoc;
@@ -335,12 +455,21 @@ void Cache_Topology(CORE *Core)
 		// Fn8000_0006 L2 and L3 caches
 		asm volatile
 		(
-			"cpuid"
-			: "=a" (CacheInfo.AX),
-			  "=b" (CacheInfo.BX),
-			  "=c" (CacheInfo.CX),
-			  "=d" (CacheInfo.DX)
-			:  "a" (0x80000006)
+			"movq	$0x80000006, %%rax	\n\t"
+			"xorq	%%rbx, %%rbx		\n\t"
+			"xorq	%%rcx, %%rcx		\n\t"
+			"xorq	%%rdx, %%rdx		\n\t"
+			"cpuid				\n\t"
+			"mov	%%eax, %0		\n\t"
+			"mov	%%ebx, %1		\n\t"
+			"mov	%%ecx, %2		\n\t"
+			"mov	%%edx, %3"
+			: "=r" (CacheInfo.AX),
+			  "=r" (CacheInfo.BX),
+			  "=r" (CacheInfo.CX),
+			  "=r" (CacheInfo.DX)
+			:
+			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
 		// L2
 		Core->T.Cache[2].Way  = CacheInfo.CPUID_0x80000006_L2.Assoc;
@@ -355,89 +484,115 @@ void Cache_Topology(CORE *Core)
 // Enumerate the Processor's Cores and Threads topology.
 void Map_Topology(void *arg)
 {
-	if (arg != NULL) {
-		CORE *Core = (CORE *) arg;
-		FEATURES features;
+    if (arg != NULL) {
+	unsigned int eax = 0x0, ecx = 0x0, edx = 0x0;
+	CORE *Core = (CORE *) arg;
+	FEATURES features;
 
-		RDMSR(Core->T.Base, MSR_IA32_APICBASE);
+	RDMSR(Core->T.Base, MSR_IA32_APICBASE);
 
-		asm volatile
-		(
-			"cpuid"
-			: "=b" (features.Std.BX)
-			:  "a" (0x1)
-		);
-		Core->T.CoreID = Core->T.ApicID=features.Std.BX.Apic_ID;
+	asm volatile
+	(
+		"movq	$0x1,  %%rax	\n\t"
+		"xorq	%%rbx, %%rbx	\n\t"
+		"xorq	%%rcx, %%rcx	\n\t"
+		"xorq	%%rdx, %%rdx	\n\t"
+		"cpuid			\n\t"
+		"mov	%%eax, %0	\n\t"
+		"mov	%%ebx, %1	\n\t"
+		"mov	%%ecx, %2	\n\t"
+		"mov	%%edx, %3"
+		: "=r" (eax),
+		  "=r" (features.Std.BX),
+		  "=r" (ecx),
+		  "=r" (edx)
+		:
+		: "%rax", "%rbx", "%rcx", "%rdx"
+	);
 
-		Cache_Topology(Core);
-	}
+	Core->T.CoreID = Core->T.ApicID=features.Std.BX.Apic_ID;
+
+	Cache_Topology(Core);
+    }
 }
 
 void Map_Extended_Topology(void *arg)
 {
-	if (arg != NULL) {
-		CORE *Core = (CORE *) arg;
+    if (arg != NULL) {
+	CORE *Core = (CORE *) arg;
 
-		int	InputLevel = 0, NoMoreLevels = 0,
-			SMT_Mask_Width = 0, SMT_Select_Mask = 0,
-			CorePlus_Mask_Width = 0, CoreOnly_Select_Mask = 0;
+	long	InputLevel = 0;
+	int	NoMoreLevels = 0,
+		SMT_Mask_Width = 0, SMT_Select_Mask = 0,
+		CorePlus_Mask_Width = 0, CoreOnly_Select_Mask = 0,
+		Pkg_Select_Mask = 0;
 
-		CPUID_TOPOLOGY_LEAF ExtTopology = {
-			.AX.Register = 0,
-			.BX.Register = 0,
-			.CX.Register = 0,
-			.DX.Register = 0
-		};
+	CPUID_TOPOLOGY_LEAF ExtTopology = {
+		.AX.Register = 0,
+		.BX.Register = 0,
+		.CX.Register = 0,
+		.DX.Register = 0
+	};
 
-		RDMSR(Core->T.Base, MSR_IA32_APICBASE);
+	RDMSR(Core->T.Base, MSR_IA32_APICBASE);
 
-		do {
-			asm volatile
-			(
-				"cpuid"
-				: "=a" (ExtTopology.AX),
-				  "=b" (ExtTopology.BX),
-				  "=c" (ExtTopology.CX),
-				  "=d" (ExtTopology.DX)
-				:  "a" (0xb),
-				   "c" (InputLevel)
-			);
-			// Exit from the loop if the BX register equals 0 or
-			// if the requested level exceeds the level of a Core.
-			if (	!ExtTopology.BX.Register
-				|| (InputLevel > LEVEL_CORE))
-					NoMoreLevels = 1;
-			else {
-			    switch (ExtTopology.CX.Type) {
-			    case LEVEL_THREAD: {
-				SMT_Mask_Width   = ExtTopology.AX.SHRbits;
+	do {
+	    asm volatile
+	    (
+		"movq	$0xb,  %%rax	\n\t"
+		"xorq	%%rbx, %%rbx	\n\t"
+		"movq	%4,    %%rcx	\n\t"
+		"xorq	%%rdx, %%rdx	\n\t"
+		"cpuid			\n\t"
+		"mov	%%eax, %0	\n\t"
+		"mov	%%ebx, %1	\n\t"
+		"mov	%%ecx, %2	\n\t"
+		"mov	%%edx, %3"
+		: "=r" (ExtTopology.AX),
+		  "=r" (ExtTopology.BX),
+		  "=r" (ExtTopology.CX),
+		  "=r" (ExtTopology.DX)
+		: "r" (InputLevel)
+		: "%rax", "%rbx", "%rcx", "%rdx"
+	    );
+	// Exit from the loop if the BX register equals 0 or
+	// if the requested level exceeds the level of a Core.
+	    if (!ExtTopology.BX.Register || (InputLevel > LEVEL_CORE))
+		NoMoreLevels = 1;
+	    else {
+	      switch (ExtTopology.CX.Type) {
+	      case LEVEL_THREAD: {
+		SMT_Mask_Width   = ExtTopology.AX.SHRbits;
 
-				SMT_Select_Mask  = ~((-1) << SMT_Mask_Width);
+		SMT_Select_Mask  = ~((-1) << SMT_Mask_Width);
 
-				Core->T.ThreadID = ExtTopology.DX.x2ApicID
-							& SMT_Select_Mask;
-				}
-				break;
-			    case LEVEL_CORE: {
-				CorePlus_Mask_Width  = ExtTopology.AX.SHRbits;
+		Core->T.ThreadID = ExtTopology.DX.x2ApicID & SMT_Select_Mask;
+		}
+		break;
+	      case LEVEL_CORE: {
+		CorePlus_Mask_Width  = ExtTopology.AX.SHRbits;
 
-				CoreOnly_Select_Mask =
-						(~((-1) << CorePlus_Mask_Width))
-							^ SMT_Select_Mask;
+		CoreOnly_Select_Mask = (~((-1) << CorePlus_Mask_Width))
+					^ SMT_Select_Mask;
 
-				Core->T.CoreID = (ExtTopology.DX.x2ApicID
-				    & CoreOnly_Select_Mask) >> SMT_Mask_Width;
-				}
-				break;
-			    }
-			}
-			InputLevel++;
-		} while (!NoMoreLevels);
+		Core->T.CoreID =(ExtTopology.DX.x2ApicID & CoreOnly_Select_Mask)
+				>> SMT_Mask_Width;
 
-		Core->T.ApicID = ExtTopology.DX.x2ApicID;
+		Pkg_Select_Mask = (~((-1) << CorePlus_Mask_Width));
 
-		Cache_Topology(Core);
-	}
+		Core->T.PkgID = (ExtTopology.DX.x2ApicID & Pkg_Select_Mask)
+				>> CorePlus_Mask_Width;
+		}
+		break;
+	      }
+	    }
+	    InputLevel++;
+	} while (!NoMoreLevels);
+
+	Core->T.ApicID = ExtTopology.DX.x2ApicID;
+
+	Cache_Topology(Core);
+    }
 }
 
 int Core_Topology(unsigned int cpu)
@@ -463,6 +618,7 @@ unsigned int Proc_Topology(void)
 	for (cpu = 0; cpu < Proc->CPU.Count; cpu++) {
 		KPublic->Core[cpu]->T.Base.value = 0;
 		KPublic->Core[cpu]->T.ApicID     = -1;
+		KPublic->Core[cpu]->T.PkgID      = -1;
 		KPublic->Core[cpu]->T.CoreID     = -1;
 		KPublic->Core[cpu]->T.ThreadID   = -1;
 
@@ -503,7 +659,7 @@ void Print_Topology(void)
 		" [%s] CPU [%u/%u]\n"					\
 		"Topology map [%s]"					\
 		"                         (w)rite-Back (i)nclusive\n"	\
-		" cpu#  ApicID  CoreID ThreadID"			\
+		" cpu#  ApicID   PkgID  CoreID ThreadID"		\
 		" L1-Inst Way  L1-Data Way     L2  Way      L3  Way\n",
 		Proc->Features.Info.Brand,
 		Proc->Features.Std.AX.ExtFamily,
@@ -517,9 +673,10 @@ void Print_Topology(void)
 			"Extended" : "Standard");
 
 	for(cpu = 0; cpu < Proc->CPU.OnLine; cpu++) {
-		sprintf(line, "%3u%c%8d%8d%8d", cpu,
+		sprintf(line, "%3u%c%8d%8d%8d%8d", cpu,
 			(KPublic->Core[cpu]->T.Base.BSP) ? '*' : 0x20,
 			KPublic->Core[cpu]->T.ApicID,
+			KPublic->Core[cpu]->T.PkgID,
 			KPublic->Core[cpu]->T.CoreID,
 			KPublic->Core[cpu]->T.ThreadID);
 		strcat(buffer, line);
