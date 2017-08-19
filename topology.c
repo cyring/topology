@@ -642,7 +642,7 @@ unsigned int Proc_Topology(void)
 
 void Print_Topology(void)
 {
-    char line[128], *buffer = NULL;
+    char *line = NULL, *buffer = NULL;
     unsigned int cpu, loop, CountEnabledCPU = Proc_Topology();
 
     if (Proc->Features.Std.DX.HTT)
@@ -650,16 +650,15 @@ void Print_Topology(void)
     else
 	Proc->CPU.OnLine = Proc->CPU.Count;
 
-	// Max 64 cpu + header lines
-    buffer = kmalloc(128 * (64 + 4), GFP_KERNEL);
-    if (buffer != NULL) {
-	sprintf(buffer,
-		"Topology: %s\n"					\
+    line = kmalloc(128, GFP_KERNEL);
+    buffer = kmalloc(256, GFP_KERNEL);
+    if ((line != NULL) && (buffer != NULL)) {
+	printk(	"Topology: %s\n"					\
 		"Processor [%1X%1X_%1X%1X]"				\
 		" [%s] CPU [%u/%u]\n"					\
 		"Topology map [%s]"					\
 		"                         (w)rite-Back (i)nclusive\n"	\
-		" cpu#  ApicID   PkgID  CoreID ThreadID"		\
+		" cpu#    Addr   ApicID   PkgID  CoreID ThreadID"	\
 		" L1-Inst Way  L1-Data Way     L2  Way      L3  Way\n",
 		Proc->Features.Info.Brand,
 		Proc->Features.Std.AX.ExtFamily,
@@ -673,13 +672,21 @@ void Print_Topology(void)
 			"Extended" : "Standard");
 
 	for(cpu = 0; cpu < Proc->CPU.OnLine; cpu++) {
-		sprintf(line, "%3u%c%8d%8d%8d%8d", cpu,
-			(KPublic->Core[cpu]->T.Base.BSP) ? '*' : 0x20,
+	  unsigned long apic_base_addr = KPublic->Core[cpu]->T.Base.Addr << 12;
+		char apic_class = 0x20;
+		if (KPublic->Core[cpu]->T.Base.BSP == 1) {
+			apic_class = '*';
+		} else if (KPublic->Core[cpu]->T.Base.EN == 0) {
+			apic_class = '!';
+		}
+		sprintf(line, "%3u%c %8lx%8d%8d%8d%8d", cpu,
+			apic_class,
+			apic_base_addr,
 			KPublic->Core[cpu]->T.ApicID,
 			KPublic->Core[cpu]->T.PkgID,
 			KPublic->Core[cpu]->T.CoreID,
 			KPublic->Core[cpu]->T.ThreadID);
-		strcat(buffer, line);
+		strcpy(buffer, line);
 
 	  for (loop = 0; loop < CACHE_MAX_LEVEL; loop++) {
 	    if (KPublic->Core[cpu]->T.Cache[loop].Type > 0) {
@@ -727,7 +734,7 @@ void Print_Topology(void)
 			}
 
 			if (loop == 2)
-			  KPublic->Core[cpu]->T.Cache[level].Way = 
+			  KPublic->Core[cpu]->T.Cache[level].Way =
 			    Compute_Way(KPublic->Core[cpu]->T.Cache[loop].Way);
 
 			sprintf(line, "%8u%3u%c%c",
@@ -741,10 +748,15 @@ void Print_Topology(void)
 	    }
 	  }
 	  strcat(buffer, "\n");
+	  printk(buffer);
 	}
-	printk(buffer);
+    } else
+	printk("Topology: Out of memory\n");
+
+    if (line != NULL)
+	kfree(line);
+    if (buffer != NULL)
 	kfree(buffer);
-    }
 }
 
 static int __init topology_init(void)
