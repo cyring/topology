@@ -646,16 +646,7 @@ unsigned int Proc_Topology(void)
 void Print_Topology(void)
 {
     char *line = NULL, *buffer = NULL;
-    unsigned int cpu, loop, CountEnabledCPU = Proc_Topology(),
-		oscount[4] = {
-			num_online_cpus(),
-			num_possible_cpus(),
-			num_present_cpus(),
-			num_active_cpus()
-		};
-
-    printk("Topology: OS CPU Count [%u/%u/%u/%u]\n",
-		oscount[0], oscount[1], oscount[2], oscount[3]);
+    unsigned int cpu, loop, CountEnabledCPU = Proc_Topology();
 
     if (Proc->Features.Std.DX.HTT)
 	Proc->CPU.OnLine = CountEnabledCPU;
@@ -775,6 +766,16 @@ static int __init topology_init(void)
 {
 	int rc = 0;
 	ARG Arg = {.count = 0};
+	unsigned int oscount[4] = {
+		num_online_cpus(),
+		num_possible_cpus(),
+		num_present_cpus(),
+		num_active_cpus()
+	};
+
+	printk("Topology: OS CPU Count [%u/%u/%u/%u]\n",
+		oscount[0], oscount[1], oscount[2], oscount[3]);
+
 	// Query features on the presumed BSP processor.
 	memset(&Arg.features, 0, sizeof(FEATURES));
 
@@ -794,7 +795,8 @@ static int __init topology_init(void)
 			if ((Proc = kmalloc(packageSize, GFP_KERNEL)) != NULL) {
 			    memset(Proc, 0, packageSize);
 
-			    Proc->CPU.Count = Arg.count;
+			    Proc->CPU.Count = (oscount[2] > 0) ?
+						oscount[2] : Arg.count;
 
 			    memcpy(&Proc->Features, &Arg.features,
 					sizeof(FEATURES) );
