@@ -310,6 +310,8 @@ void Query_Features(void *pArg)
 
 	// Per Vendor features
 	if (!strncmp(arg->features.Info.VendorID, VENDOR_INTEL, 12)) {
+		unsigned int MaxCore = 0; //arg->features.Std.BX.MaxThread;
+
 		asm volatile
 		(
 			"movq	$0x4,  %%rax	\n\t"
@@ -328,8 +330,9 @@ void Query_Features(void *pArg)
 			:
 			: "%rax", "%rbx", "%rcx", "%rdx"
 		);
-		arg->count = (eax >> 26) & 0x3f;
-		arg->count++;
+		MaxCore = (eax >> 26) & 0x3f;
+		MaxCore++;
+		arg->count = MaxCore;
 
 	    if (arg->features.Info.LargestStdFunc >= 0xa) {
 		asm volatile
@@ -643,7 +646,16 @@ unsigned int Proc_Topology(void)
 void Print_Topology(void)
 {
     char *line = NULL, *buffer = NULL;
-    unsigned int cpu, loop, CountEnabledCPU = Proc_Topology();
+    unsigned int cpu, loop, CountEnabledCPU = Proc_Topology(),
+		oscount[4] = {
+			num_online_cpus(),
+			num_possible_cpus(),
+			num_present_cpus(),
+			num_active_cpus()
+		};
+
+    printk("Topology: OS CPU Count [%u/%u/%u/%u]\n",
+		oscount[0], oscount[1], oscount[2], oscount[3]);
 
     if (Proc->Features.Std.DX.HTT)
 	Proc->CPU.OnLine = CountEnabledCPU;
@@ -781,7 +793,9 @@ static int __init topology_init(void)
 			packageSize = ROUND_TO_PAGES(sizeof(PROC));
 			if ((Proc = kmalloc(packageSize, GFP_KERNEL)) != NULL) {
 			    memset(Proc, 0, packageSize);
+
 			    Proc->CPU.Count = Arg.count;
+
 			    memcpy(&Proc->Features, &Arg.features,
 					sizeof(FEATURES) );
 
